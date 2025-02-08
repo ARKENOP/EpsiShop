@@ -1,27 +1,85 @@
 import 'package:epsi_shop/bo/product.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'package:epsi_shop/bo/cart.dart';
 
-class DetailPage extends StatelessWidget {
-  DetailPage(this.product, {super.key});
-  Product product;
+class DetailPage extends StatefulWidget {
+  final int productId;
+
+  DetailPage({required this.productId, Key? key}) : super(key: key);
+
+  @override
+  _DetailPageState createState() => _DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage> {
+  Product? product;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchProduct();
+  }
+
+  Future<void> fetchProduct() async {
+    final response = await http.get(Uri.parse("https://fakestoreapi.com/products/${widget.productId}"));
+    if (response.statusCode == 200) {
+      setState(() {
+        product = Product.fromMap(json.decode(response.body));
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cart = Provider.of<Cart>(context);
+
+    if (product == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text("Produit")),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text("Produit"),
+        title: Text(product!.title),
+        actions: [
+          IconButton(
+            onPressed: () => context.go("/cart"),
+            icon: Badge(
+              label:
+              Text(context.watch<Cart>().allProducts.length.toString()),
+              child: const Icon(Icons.shopping_cart),
+            ),
+          )
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Image.network(
-            product.image,
-            height: 150,
-          ),
-          TitleLinePrice(product: product),
-          Description(product: product),
+          Image.network(product!.image, height: 150),
+          Text(product!.title, style: Theme.of(context).textTheme.titleLarge),
+          Text("${product!.price}€ HT"),
+          Text("Description: ${product!.description}"),
           Spacer(),
-          ButtonReserverEssai()
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton(
+                  onPressed: () => cart.addProduct(product!),
+                  child: Text("Ajouter au panier"),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
